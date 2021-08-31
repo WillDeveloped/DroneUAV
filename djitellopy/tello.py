@@ -29,7 +29,7 @@ class Tello:
     TAKEOFF_TIMEOUT = 20  # in seconds
     FRAME_GRAB_TIMEOUT = 3
     TIME_BTW_COMMANDS = 0.1  # in seconds
-    TIME_BTW_RC_CONTROL_COMMANDS = 0.001  # in seconds
+    TIME_BTW_RC_CONTROL_COMMANDS = 0.1  # in seconds
     RETRY_COUNT = 2  # number of retries after a failed command
     TELLO_IP = '192.168.10.1'  # Tello IP address
 
