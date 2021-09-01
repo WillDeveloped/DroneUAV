@@ -27,9 +27,11 @@ j0.init()
 drone = tello.Tello()
 drone.connect()
 time.sleep(3)
-#drone.set_video_fps("Tello.FPS_30")
+'''
+#drone.set_video_fps("Tello.FPS_30") 
 #drone.set_video_resolution("Tello.RESOLUTION_720P")
 #drone.set_video_bitrate("Tello.BITRATE_5MBPS")
+'''
 drone.streamon()
 STREAMING = True
     
@@ -48,10 +50,8 @@ def getStream():
         cv2.imshow("LIVE FEED", image)
         cv2.waitKey(1)
 
-def getJoystickInput():
-    
+def getJoystickInput(): 
     global velocity
-
 
     for eve in pygame.event.get():
         if eve.type == pygame.KEYDOWN and eve.key == pygame.K_ESCAPE:
@@ -76,7 +76,6 @@ def main():
     liveFeed.start()
 
     while True:
-        #print(velocity)
         getJoystickInput()
         drone.send_rc_control(velocity[0], (-1 * velocity[1]), (-1*int(velocity[3]*S)) , velocity[2])
         
