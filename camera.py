@@ -1,3 +1,8 @@
+'''
+This script not used in main build. Used as a test/playground for the camera feed.
+
+'''
+
 from djitellopy import tello
 import cv2
 

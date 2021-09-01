@@ -1,3 +1,7 @@
+'''
+This module not used in the main build. Used as a test/playground. 
+'''
+
 import pygame
 
 dead_zone = 0.09 #Change this so that the inputs only change if an inteneded velocity change takes place
