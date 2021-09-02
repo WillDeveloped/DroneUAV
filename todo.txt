@@ -1,0 +1,4 @@
+I need to figureout how far the drone travels, when it thinks it's traveling 10cm. 
+I need to figureout how accurate the altitude is. 
+I need to trim the drone so that it sits still when it's supposed to
+I need to figureout how to determine a velocity based on the pixel intencity of an image
