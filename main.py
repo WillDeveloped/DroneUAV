@@ -78,6 +78,6 @@ def main():
     while True:
         getJoystickInput()
         drone.send_rc_control(velocity[0], (-1 * velocity[1]), (-1*int(velocity[3]*S)) , velocity[2])
-        
+        time.sleep(.2)
 if __name__ == '__main__':
     main()
