@@ -6,7 +6,7 @@ import time
 
 
 import keyboard as kb
-from djitellopy import tello
+from djitellopy import Tello
 
 
 velocity = [0, 0 ,0 ,0]
@@ -16,23 +16,13 @@ velocity = [0, 0 ,0 ,0]
 #y is yaw
 #t is throttle
 
-drone = tello.Tello()
+drone = Tello()
 drone.connect()
-
-#print("SDK VERSION")
-#drone.query_sdk_version()
-#print("serial number")
-#drone.query_serial_number()
-drone.set_video_fps(tello.Tello.FPS_30) 
-drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
-drone.set_video_bitrate(tello.Tello.BITRATE_5MBPS)
+drone.set_video_fps(drone.Tello.FPS_30) 
+drone.set_video_resolution(drone.Tello.RESOLUTION_720P)
+drone.set_video_bitrate(drone.Tello.BITRATE_5MBPS)
 drone.streamon()
-
-    
-#print("[INFO] Joystick connected")
-print("[INFO] DRONE CONNECTED")
-print("[INFO] LIVE FEED CONNECTED")
-    
+ 
 def getStream():
     while True:
         image = drone.get_frame_read().frame
@@ -41,7 +31,7 @@ def getStream():
 
 
 def getInput():
-
+    
     lr, fb, ud, yv = 0, 0, 0, 0
     speed = 60
 
