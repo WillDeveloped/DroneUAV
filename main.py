@@ -26,12 +26,14 @@ j0 = pygame.joystick.Joystick(0)
 j0.init()
 drone = tello.Tello()
 drone.connect()
-time.sleep(3)
-'''
-#drone.set_video_fps("Tello.FPS_30") 
-#drone.set_video_resolution("Tello.RESOLUTION_720P")
-#drone.set_video_bitrate("Tello.BITRATE_5MBPS")
-'''
+
+#print("SDK VERSION")
+#drone.query_sdk_version()
+#print("serial number")
+#drone.query_serial_number()
+drone.set_video_fps(tello.Tello.FPS_30) 
+drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
+drone.set_video_bitrate(tello.Tello.BITRATE_5MBPS)
 drone.streamon()
 STREAMING = True
     
@@ -40,11 +42,7 @@ print("[INFO] DRONE CONNECTED")
 print("[INFO] LIVE FEED CONNECTED")
     
 def getStream():
-    drone
-    image = drone.get_frame_read().frame
-    cv2.imshow("LIVE FEED", image)
-    cv2.waitKey(1)
-
+   
     while STREAMING:
         image = drone.get_frame_read().frame
         cv2.imshow("LIVE FEED", image)
@@ -77,7 +75,7 @@ def main():
 
     while True:
         getJoystickInput()
-        drone.send_rc_control(velocity[0], (-1 * velocity[1]), (-1*int(velocity[3]*S)) , velocity[2])
-        time.sleep(.2)
+        drone.send_rc_control(velocity[0], (-1 * velocity[1]), (-1*int(velocity[3])) , velocity[2])
+        time.sleep(.3)
 if __name__ == '__main__':
     main()

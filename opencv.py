@@ -1,7 +1,23 @@
 import cv2
+from djitellopy import Tello
+import asyncio
+from tello_asyncio import VIDEO_URL
 import numpy as np
 
-cap = cv2.VideoCapture(0)
+
+drone = Tello()
+drone.connect()
+drone.streamon()
+drone.turn_motor_on()
+
+#cap = drone.get_frame_read().frame
+
+cap = cv2.VideoCapture(VIDEO_URL)
+        
+#print("Drone feed is of type", cap)
+#print("Webcam feed is of type",img)
+
+
 whT = 320
 confidence_threshold = 0.5
 nmsThreshold = 0.3
@@ -11,8 +27,8 @@ classNames = []
 with open(classesFile, 'rt') as f:
     classNames = f.read().rstrip('\n').split('\n')
 
-modelConfig = 'Resources\Yolo\yolov3.cfg'
-modelWeights = 'Resources\Yolo\yolov3.weights'
+modelConfig = 'Resources\Yolo\yolov3-tiny.cfg'
+modelWeights = 'Resources\Yolo\yolov3-tiny.weights'
 
 net = cv2.dnn.readNetFromDarknet(modelConfig, modelWeights)
 net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
@@ -59,7 +75,9 @@ while True:
     #print(len(outputs).shape)
     findObjects(outputs,img)
     
+
     '''
+    
     outputs:
         (300,85)        produces 300 bounding boxes
         (1200, 85)      1200 bounding boxes
@@ -69,8 +87,9 @@ while True:
         the other 81 are the probability that the key value pair is in the box. 
         so object 1 is person. the value is the percentage of confidence
         that there's a person in the bounding box. 
-    '''
     
+    '''
+
     cv2.imshow('image', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
@@ -78,3 +97,4 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
