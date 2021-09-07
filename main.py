@@ -24,6 +24,14 @@ drone.set_video_bitrate(drone.Tello.BITRATE_5MBPS)
 drone.streamon()
  
 def getStream():
+    '''
+    Still need to pipe the video feed to the prediction model.
+    
+    tello.py has a method "get_video_capture" 
+    that returns a VideoCapture (Might be good)
+    
+    '''
+
     while True:
         image = drone.get_frame_read().frame
         cv2.imshow("LIVE FEED", image)
