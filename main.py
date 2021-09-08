@@ -16,13 +16,15 @@ velocity = [0, 0 ,0 ,0]
 #y is yaw
 #t is throttle
 
+kb.init()
 drone = Tello()
 drone.connect()
-drone.set_video_fps(drone.Tello.FPS_30) 
-drone.set_video_resolution(drone.Tello.RESOLUTION_720P)
-drone.set_video_bitrate(drone.Tello.BITRATE_5MBPS)
+#drone.set_video_fps(drone.Tello.FPS_30) 
+#drone.set_video_resolution(drone.Tello.RESOLUTION_720P)
+#drone.set_video_bitrate(drone.Tello.BITRATE_5MBPS)
 drone.streamon()
- 
+
+
 def getStream():
     '''
     Still need to pipe the video feed to the prediction model.
@@ -43,20 +45,20 @@ def getInput():
     lr, fb, ud, yv = 0, 0, 0, 0
     speed = 60
 
-    if kb.getInput("a"): lr = -speed
-    if kb.getInput("d"): lr = speed
+    if kb.isPressed("a"): lr = -speed//2
+    elif kb.isPressed("d"): lr = speed//2
 
-    if kb.getInput("s"): fb = -speed
-    if kb.getInput("w"): fb = speed
+    if kb.isPressed("s"): fb = -speed
+    elif kb.isPressed("w"): fb = speed
 
-    if kb.getInput("f"): ud = -speed
-    if kb.getInput("r"): ud = speed
+    if kb.isPressed("f"): ud = -speed
+    elif kb.isPressed("r"): ud = speed
 
-    if kb.getInput("e"): yv = -speed
-    if kb.getInput("q"): yv = speed
+    if kb.isPressed("e"): yv = speed
+    elif kb.isPressed("q"): yv = -speed
 
-    if kb.getInput("t"): drone.takeoff()
-    if kb.getInput("l"): drone.land()
+    if kb.isPressed("t"): drone.takeoff()
+    elif kb.isPressed("l"): drone.land()
 
     return[lr, fb, ud, yv]
 
@@ -64,11 +66,12 @@ def getInput():
 def main():
     liveFeed = threading.Thread(target=getStream, args=())
     liveFeed.start()
-
+    prev_velocity = [0,0,0,0]
     while True:
-        velocity = getInput()
-        drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
-        
+        velocity = getInput()    
+        if prev_velocity != velocity:
+            drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
+        prev_velocity = velocity
 
 if __name__ == '__main__':
     main()
