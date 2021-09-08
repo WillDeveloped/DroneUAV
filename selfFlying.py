@@ -24,6 +24,15 @@ drone.set_video_resolution(drone.Tello.RESOLUTION_720P)
 drone.set_video_bitrate(drone.Tello.BITRATE_5MBPS)
 drone.streamon()
  
+def getDistanceFromDrone(intensity):
+    '''
+    Takes in an int representing the pixel intensity maximum
+    in the field of concern from the drones flight path. Returns the distance to the object.
+    Equation: f(x) = -.102x + 82.26
+    '''
+    return (-.102 * intensity) + 82.66
+
+
 def takePhoto():
     '''
     Instructs the drone to take a picture, and get the positional data of the drone. Image should be passed through model, creating a monodepth image. Image should be stored as both the mono, and the original.
