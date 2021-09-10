@@ -1,5 +1,4 @@
 import torch
-import utils
 import cv2
 import time
 import argparse
@@ -21,12 +20,12 @@ def classify(img):
     optimized = True
 
     #select device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
 
     #load network
     model = DPTDepthModel(
-            path="model\dpt_hybrid-midas-501f0c75.pt",
-            backbone="vitb_rn50_384",
+            path="Resources\dpt_large-midas-2f21e586.pt",
+            backbone="vitl16_384",
             non_negative=True,
         )
     net_w, net_h = 384, 384
@@ -101,6 +100,7 @@ def main():
     img = cv2.imread("test.jpg")
     classifiedImage = classify(img)
     print("#####---%s seconds ---#####" % (time.time() - start_time))
+    cv2.imwrite("face.png", classifiedImage)
     cv2.imshow("image",classifiedImage)
     cv2.waitKey()
 
