@@ -3,10 +3,10 @@ import cv2
 import numpy as np
 import threading
 import time
-
+import pandas as pd
 
 import keyboard as kb
-from djitellopy import Tello
+from djitellopy import tello
 
 
 velocity = [0, 0 ,0 ,0]
@@ -17,12 +17,12 @@ velocity = [0, 0 ,0 ,0]
 #t is throttle
 
 kb.init()
-drone = Tello()
+drone = tello.Tello()
 drone.connect()
 #drone.set_video_fps(drone.Tello.FPS_30) 
 #drone.set_video_resolution(drone.Tello.RESOLUTION_720P)
 #drone.set_video_bitrate(drone.Tello.BITRATE_5MBPS)
-drone.streamon()
+#drone.streamon()
 
 
 def getStream():
@@ -40,13 +40,20 @@ def getStream():
         cv2.waitKey(1)
 
 
+def getTelemetry(data):
+        newResponse = drone.get_current_state()
+        data.loc[len(data)] = list(newResponse.values())    #appends to the dataframe           
+        data.to_csv('gatheredData.csv', index=False)
+        
+
+
 def getInput():
     
     lr, fb, ud, yv = 0, 0, 0, 0
     speed = 60
 
-    if kb.isPressed("a"): lr = -speed//2
-    elif kb.isPressed("d"): lr = speed//2
+    if kb.isPressed("a"): lr = -speed
+    elif kb.isPressed("d"): lr = speed
 
     if kb.isPressed("s"): fb = -speed
     elif kb.isPressed("w"): fb = speed
@@ -57,21 +64,33 @@ def getInput():
     if kb.isPressed("e"): yv = speed
     elif kb.isPressed("q"): yv = -speed
 
-    if kb.isPressed("t"): drone.takeoff()
+    if kb.isPressed("t"): 
+        drone.takeoff()
+        time.sleep(3)
     elif kb.isPressed("l"): drone.land()
 
     return[lr, fb, ud, yv]
 
 
 def main():
-    liveFeed = threading.Thread(target=getStream, args=())
-    liveFeed.start()
-    prev_velocity = [0,0,0,0]
+    #liveFeed = threading.Thread(target=getStream, args=())
+    #liveFeed.start()
+
+    #getTele = threading.Thread(target=getTelemetry, args=(10, 'forward'))
+    #getTele.start()
+    drone.set_speed(10)
+    response = drone.get_current_state()            #Gets dict response
+    data = pd.DataFrame([response])                 #Creates data frame
+    data.transpose()
+    
+    
+    
     while True:
         velocity = getInput()    
-        if prev_velocity != velocity:
-            drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
-        prev_velocity = velocity
+        drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
+        getTelemetry(data)
+        time.sleep(.2)
+    
 
 if __name__ == '__main__':
     main()

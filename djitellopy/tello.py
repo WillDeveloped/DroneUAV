@@ -216,6 +216,7 @@ class Tello:
         """Call this function to attain the state of the Tello. Returns a dict
         with all fields.
         Internal method, you normally wouldn't call this yourself.
+        
         """
         return self.get_own_udp_object()['state']
 
