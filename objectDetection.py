@@ -98,7 +98,7 @@ def main():
     drone = tello.Tello()
     drone.connect()
     drone.set_video_fps(tello.Tello.FPS_15)
-    drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
+    drone.set_video_resolution(tello.Tello.RESOLUTION_480P)
     drone.set_video_bitrate(tello.Tello.BITRATE_5MBPS)
     print("Battery:", drone.get_battery())
     
