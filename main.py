@@ -1,3 +1,4 @@
+from datetime import datetime
 import pygame 
 import cv2
 import numpy as np
@@ -7,7 +8,7 @@ import pandas as pd
 
 import keyboard as kb
 from djitellopy import tello
-from monoDepth import monoDepth
+#from monoDepth import monoDepth
 
 
 velocity = [0, 0 ,0 ,0]
@@ -16,6 +17,19 @@ velocity = [0, 0 ,0 ,0]
 #fb is front back
 #y is yaw
 #t is throttle
+
+techIssues = cv2.imread("images/technicalDifficulties.jpg")
+
+def draw_area_of_concern(img):
+    try:
+        h,w,c = img.shape
+        cv2.rectangle(img, (0, h//3), (w,h//3 * 2), (255,0,0), 4)
+    except:
+        return(techIssues)
+    
+    return(img)
+
+
 
 def getInput(drone):
     
@@ -54,27 +68,42 @@ def main():
     data = pd.DataFrame([response])                             #Creates dataframe of telementry data
     data.transpose()                                            #Sets up the dataframe correctly
   
-    drone.set_video_fps(tello.Tello.FPS_15)                     #lower than 15 and choppy, higher than 15 and it drops
+    drone.set_video_fps(tello.Tello.FPS_15)                     #lower than 15 and choppy, higher than 15 and it drops frames
     drone.set_video_resolution(tello.Tello.RESOLUTION_480P)     #Sets resolution of video
     #drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
-    drone.set_video_bitrate(tello.Tello.BITRATE_5MBPS)
+    drone.set_video_bitrate(tello.Tello.BITRATE_5MBPS)          #Sets bitrate of stream
     
 
     drone.streamoff()                               #Resets the stream 
-    drone.streamon()
-    while True:
-        velocity = getInput(drone)
+    drone.streamon()                                #starts the stream
+    
+                            # MAIN LOOP #
 
-        if oldVelocity != velocity:
+    cap =    cv2.VideoCapture('udp://0.0.0.0:11111')
+    
+    while True:                 
+        success, img = cap.read()
+        img = draw_area_of_concern(img)
+
+
+        velocity = getInput(drone)      #Gets input from drone
+
+        if oldVelocity != velocity:     #checks for change if nothing, keep going
             drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
-        oldVelocity = velocity
+        oldVelocity = velocity          
 
-        image = monoDepth(drone.get_frame_read().frame)
-        newResponse = drone.get_current_state()
-                         
-        cv2.imshow("LIVE FEED", image)
+        #image = monoDepth(drone.get_frame_read().frame)     #Sends the frame to the model. This gets hung up alot   
+        #h, w, c = image.shape
+
+        
+        newResponse = drone.get_current_state()             
+        
+
+
+        cv2.imshow("LIVE FEED", img)
         cv2.waitKey(1)
-
+        filename = "frames\\" + datetime.now().strftime('%H%M%S%f') + ".jpg"
+        cv2.imwrite(filename, img)
         data.loc[len(data)] = list(newResponse.values())    #appends to the dataframe           
         data.to_csv('gatheredData.csv', index=False)    
         
