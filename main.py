@@ -8,7 +8,7 @@ import pandas as pd
 
 import keyboard as kb
 from djitellopy import tello
-#from monoDepth import monoDepth
+from monoDepth import classify
 
 
 velocity = [0, 0 ,0 ,0]
@@ -20,10 +20,10 @@ velocity = [0, 0 ,0 ,0]
 
 techIssues = cv2.imread("images/technicalDifficulties.jpg")
 
-def draw_area_of_concern(img):
-    try:
+def draw_area_of_concern(img, pitch):
+    try:          
         h,w,c = img.shape
-        cv2.rectangle(img, (0, h//3), (w,h//3 * 2), (255,0,0), 4)
+        cv2.rectangle(img, (0, h//3), (w,h//3 * 2 + pitch*2), (255,0,0), 4)
     except:
         return(techIssues)
     
@@ -70,7 +70,7 @@ def main():
   
     drone.set_video_fps(tello.Tello.FPS_15)                     #lower than 15 and choppy, higher than 15 and it drops frames
     drone.set_video_resolution(tello.Tello.RESOLUTION_480P)     #Sets resolution of video
-    #drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
+    drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
     drone.set_video_bitrate(tello.Tello.BITRATE_5MBPS)          #Sets bitrate of stream
     
 
@@ -79,18 +79,21 @@ def main():
     
                             # MAIN LOOP #
 
-    cap =    cv2.VideoCapture('udp://0.0.0.0:11111')
+    
     
     while True:                 
-        success, img = cap.read()
-        img = draw_area_of_concern(img)
+        img = drone.get_frame_read().frame
+        img = classify(img)
+        cv2.imshow("LIVE FEED", img)
+        cv2.waitKey(1)
+        img = draw_area_of_concern(img, 0)
 
 
         velocity = getInput(drone)      #Gets input from drone
 
-        if oldVelocity != velocity:     #checks for change if nothing, keep going
-            drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
-        oldVelocity = velocity          
+             #checks for change if nothing, keep going
+        drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
+               
 
         #image = monoDepth(drone.get_frame_read().frame)     #Sends the frame to the model. This gets hung up alot   
         #h, w, c = image.shape
@@ -98,10 +101,6 @@ def main():
         
         newResponse = drone.get_current_state()             
         
-
-
-        cv2.imshow("LIVE FEED", img)
-        cv2.waitKey(1)
         filename = "frames\\" + datetime.now().strftime('%H%M%S%f') + ".jpg"
         cv2.imwrite(filename, img)
         data.loc[len(data)] = list(newResponse.values())    #appends to the dataframe           

@@ -14,46 +14,51 @@ from model.transforms import Resize, NormalizeImage, PrepareForNet
 start_time = time.time()
 
 
+torch.backends.cudnn.enabled = True
+torch.backends.cudnn.benchmark = True
+optimized = True
+
+
+#select device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("device: %s" % device)
+#load network
+model = DPTDepthModel(
+        path="Resources\dpt_large-midas-2f21e586.pt",
+        backbone="vitl16_384",
+        non_negative=True,        )
+net_w, net_h = 384, 384
+resize_mode = "minimal"
+normalization = NormalizeImage(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+
+transform = Compose(
+    [
+        Resize(
+            net_w,
+            net_h,
+            resize_target=None,
+            keep_aspect_ratio=True,
+            ensure_multiple_of=32,
+            resize_method=resize_mode,
+            image_interpolation_method=cv2.INTER_CUBIC,
+        ),
+        normalization,
+        PrepareForNet(),
+    ]
+)
+
+model.eval()
+
+if optimized and torch.device("cuda"):
+    model = model.to(memory_format=torch.channels_last)  
+    model = model.half()
+        
+
+model.to(device)
+    
+
+
 def classify(img):
-    torch.backends.cudnn.enabled = True
-    torch.backends.cudnn.benchmark = True
-    optimized = True
-
-    #select device
-    device = "cpu"
-
-    #load network
-    model = DPTDepthModel(
-            path="Resources\dpt_large-midas-2f21e586.pt",
-            backbone="vitl16_384",
-            non_negative=True,
-        )
-    net_w, net_h = 384, 384
-    resize_mode = "minimal"
-    normalization = NormalizeImage(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-
-    transform = Compose(
-        [
-            Resize(
-                net_w,
-                net_h,
-                resize_target=None,
-                keep_aspect_ratio=True,
-                ensure_multiple_of=32,
-                resize_method=resize_mode,
-                image_interpolation_method=cv2.INTER_CUBIC,
-            ),
-            normalization,
-            PrepareForNet(),
-        ]
-    )
-
-    model.eval()
-
-    model.to(device)
-
-    #compute
-
     if img.ndim == 2:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -91,8 +96,6 @@ def classify(img):
             out = max_val * (prediction - depth_min) / (depth_max - depth_min)
         else:
             out = np.zeros(prediction.shape, dtype=prediction.type)
-
-
 
         return out.astype("uint16")
 
