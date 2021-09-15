@@ -7,6 +7,7 @@ start_time = time.time()
 
 depth_map = cv2.imread('face.png', 0)
 color_raw = cv2.imread("test.jpg")
+depth_map = cv2.bitwise_not(depth_map)
 
 #depth_map = cv2.resize(depth_map, (0,0), fx=0.5, fy=0.5)
 #color_raw = cv2.resize(depth_map, (0,0), fx=0.5, fy=0.5)
