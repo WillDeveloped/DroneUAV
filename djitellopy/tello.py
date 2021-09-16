@@ -30,7 +30,7 @@ class Tello:
     FRAME_GRAB_TIMEOUT = 3
     TIME_BTW_COMMANDS = 0.1  # in seconds
     TIME_BTW_RC_CONTROL_COMMANDS = 0.1  # in seconds
-    RETRY_COUNT = 2  # number of retries after a failed command
+    RETRY_COUNT = 3  # number of retries after a failed command
     TELLO_IP = '192.168.10.1'  # Tello IP address
 
     # Video stream, server socket
@@ -52,6 +52,8 @@ class Tello:
     FPS_5 = 'low'
     FPS_15 = 'middle'
     FPS_30 = 'high'
+    CAMERA_FORWARD = 0
+    CAMERA_DOWNWARD = 1
 
     # Set up logger
     HANDLER = logging.StreamHandler()
@@ -60,7 +62,7 @@ class Tello:
 
     LOGGER = logging.getLogger('djitellopy')
     LOGGER.addHandler(HANDLER)
-    LOGGER.setLevel(logging.INFO)
+    LOGGER.setLevel(logging.WARNING)
     # Use Tello.LOGGER.setLevel(logging.<LEVEL>) in YOUR CODE
     # to only receive logs of the desired level and higher
 
@@ -216,7 +218,6 @@ class Tello:
         """Call this function to attain the state of the Tello. Returns a dict
         with all fields.
         Internal method, you normally wouldn't call this yourself.
-        
         """
         return self.get_own_udp_object()['state']
 
@@ -544,6 +545,11 @@ class Tello:
             if not self.get_current_state():
                 raise Exception('Did not receive a state packet from the Tello')
 
+    def send_keepalive(self):
+        """Send a keepalive packet to prevent the drone from landing after 15s
+        """
+        self.send_control_command("keepalive")
+
     def turn_motor_on(self):
         """Turn on motors without flying (mainly for cooling)
         """
@@ -579,7 +585,6 @@ class Tello:
         when your computer is connected to Tello-XXXXXX WiFi ntwork).
         Currently Tello EDUs do not support video streaming while connected
         to a WiFi-network.
-
         !!! Note:
             If the response is 'Unknown command' you have to update the Tello
             firmware. This can be done using the official Tello app.
@@ -705,12 +710,10 @@ class Tello:
 
     def curve_xyz_speed(self, x1: int, y1: int, z1: int, x2: int, y2: int, z2: int, speed: int):
         """Fly to x2 y2 z2 in a curve via x2 y2 z2. Speed defines the traveling speed in cm/s.
-
         - Both points are relative to the current position
         - The current position and both points must form a circle arc.
         - If the arc radius is not within the range of 0.5-10 meters, it raises an Exception
         - x1/x2, y1/y2, z1/z2 can't both be between -20-20 at the same time, but can both be 0.
-
         Arguments:
             x1: -500-500
             x2: -500-500
@@ -738,12 +741,10 @@ class Tello:
 
     def curve_xyz_speed_mid(self, x1: int, y1: int, z1: int, x2: int, y2: int, z2: int, speed: int, mid: int):
         """Fly to x2 y2 z2 in a curve via x2 y2 z2. Speed defines the traveling speed in cm/s.
-
         - Both points are relative to the mission pad with id mid.
         - The current position and both points must form a circle arc.
         - If the arc radius is not within the range of 0.5-10 meters, it raises an Exception
         - x1/x2, y1/y2, z1/z2 can't both be between -20-20 at the same time, but can both be 0.
-
         Arguments:
             x1: -500-500
             y1: -500-500
@@ -880,6 +881,17 @@ class Tello:
         cmd = 'setfps {}'.format(fps)
         self.send_control_command(cmd)
 
+    def set_video_direction(self, direction: int):
+        """Selects one of the two cameras for video streaming
+        The forward camera is the regular 1080x720 color camera
+        The downward camera is a grey-only 320x240 IR-sensitive camera
+        Use one of the following for the direction argument:
+            Tello.CAMERA_FORWARD
+            Tello.CAMERA_DOWNWARD
+        """
+        cmd = 'downvision {}'.format(direction)
+        self.send_control_command(cmd)
+
     def send_expansion_command(self, expansion_cmd: str):
         """Sends a command to the ESP32 expansion board connected to a Tello Talent
         Use e.g. tello.send_expansion_command("led 255 0 0") to turn the top led red.
@@ -974,6 +986,13 @@ class Tello:
             str: Serial Number
         """
         return self.send_read_command('sn?')
+
+    def query_active(self) -> str:
+        """Get the active status
+        Returns:
+            str
+        """
+        return self.send_read_command('active?')
 
     def end(self):
         """Call this method when you want to end the tello object

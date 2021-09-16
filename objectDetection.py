@@ -94,14 +94,13 @@ def getInput(drone):
 
 def main():
     kb.init()
-    oldVelocity = [0,0,0,0]
+    
     drone = tello.Tello()
     drone.connect()
     drone.set_video_fps(tello.Tello.FPS_15)
-    drone.set_video_resolution(tello.Tello.RESOLUTION_480P)
-    drone.set_video_bitrate(tello.Tello.BITRATE_5MBPS)
-    print("Battery:", drone.get_battery())
-    
+    drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
+    drone.set_video_bitrate(tello.Tello.BITRATE_4MBPS)
+       
     #Settings for drone, initialize the telementry data
     drone.set_speed(10)
     #response = drone.get_current_state()                        #Gets telementry data
@@ -110,19 +109,13 @@ def main():
 
     drone.streamoff()                               #Resets the stream 
     drone.streamon()
-
-    cap = cv2.VideoCapture('udp://0.0.0.0:11111')
+    print("Battery:", drone.get_battery())
+    
 
     
-    while True:
-
-        velocity = getInput(drone)
-
-        if oldVelocity != velocity:                 #Only send a new command if the values have changed
-            drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
-        oldVelocity = velocity      
+    while True:  
+        img = drone.get_frame_read().frame
         
-        success, img = cap.read()
         blob = cv2.dnn.blobFromImage(img, 1/255, (whT, whT), [0,0,0], 1, crop=False)
         net.setInput(blob)
         layerNames = net.getLayerNames()
@@ -131,7 +124,10 @@ def main():
         outputs = net.forward(outputNames)
         #print(len(outputs).shape)
         findObjects(outputs,img)
+        velocity = getInput(drone)
 
+                        #Only send a new command if the values have changed
+        drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3]) 
         cv2.imshow('image', img)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
