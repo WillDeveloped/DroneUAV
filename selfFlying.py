@@ -1,12 +1,12 @@
 import pygame 
 import cv2
 import numpy as np
-import threading
 import time
+import pandas as pd
 
 import keyboard as kb
-from djitellopy import Tello
-
+from djitellopy import tello
+from monoDepth import classify
 
 #This may not be needed anymore. Might be switching to 
 #Move commands that wait for a response
@@ -16,94 +16,196 @@ velocity = [0, 0 ,0 ,0]
 #fb is front back
 #y is yaw
 #t is throttle
-
-drone = Tello()
-drone.connect()
-drone.set_video_fps(drone.Tello.FPS_30) 
-drone.set_video_resolution(drone.Tello.RESOLUTION_720P)
-drone.set_video_bitrate(drone.Tello.BITRATE_5MBPS)
-drone.streamon()
- 
-def distanceFromDrone(intensity):
-    '''
-    Takes in an int representing the pixel intensity maximum
-    in the field of concern from the drones flight path, after the image was converted to monodepth. Returns the distance to the closest object in the field of concern(The flight path in a straight line from the drone).
-    Equation: f(x) = -.102x + 82.26
-
-    Data from colab calculations:
-    Pixel Intensity | Distance 
-    70                  120
-    33                  320
-    26                  420
-    23                  580
-    '''
-    return (-.102 * intensity) + 82.66
+MUSTMOVE = .15
+PROCEED = 0.60
+INTENSITY = 180
 
 
-def takePhoto():
-    '''
-    Instructs the drone to take a picture, and get the positional data of the drone. Image should be passed through model, creating a monodepth image. Image should be stored as both the mono, and the original.
-
-    Should this check to see if the drone is moving before taking a photo? For instance, if I call speed and acceleration, find a non-zero and a negative number, I can infer that the drone is slowing down. Should I wait until the speed and acceperation are both close to zero, before taking a photo? 
-    '''
-    height = drone.get_height()
-    pitch = drone.get_pitch()
-    roll = drone.get_roll()
-    yaw = drone.get_yaw()
-    speed_x = drone.get_speed_x()
-    speed_y = drone.get_speed_y()
-    speed_z = drone.get_speed_z()
-    acc_x = drone.get_acceleration_x()
-    acc_y = drone.get_acceleration_y()
-    acc_z = drone.get_acceleration_z()
-
-    pass
-
-def collide():
-    '''
-    Returns true or false on whether a collision will happen. This method will take the output of the mono model, and determine if a collsion will happen based on the intensity of the pixels, along the current heading (represented by a certain amount of pixes x/y l/r (Need to determin this))
-
-
-    Figureout what part of the drones photo is it's collision path. Meaning, draw a box in the image that the drone cares about. 
-
-    
-    Figureout how much the drone actually moves foward, when the minimum value is called.
-
-    Figureout a scale on the drones photo, determining pixle intensity value and how it releates to distance away from the drone. Find minimum distance away from an object the image must be, and the furthest distance away from an object the drone can be to pick it up on the camera. 
-    '''
+def mustMove(img):
+  if (np.sum(img > INTENSITY) / (img.shape[0] * img.shape[1])) > MUSTMOVE:   
+    return True
+  else:
     return False
 
-def findBetterCourse():
-    '''
-    Takes the output produced by the model, and tries to find an heading in 3 dimensional space, and returns the needed corrections to take, prior to advancing. This method might
-    make the moves it's self, then restart the process starting at take photo. 
-    '''
-    pass
+def getSections(img, direction = "none"):
+  #Seperates the fov into 4 sections
+  # [yMin:yMax, xMin, xMax]
+  h, w = img.shape
+  
+  if direction == "none":
+    img = img[h//3:h//3*2, :w]    #Should be middle third of screen
+    #cv2_imshow(img)
+    #print("MIDDLE ^ \n")
+  if direction == "top":
+    img = img[:h//3, :w]          #Should be top third of screen
+    #cv2_imshow(img)
+    #print("TOP ^ \n")
+  if direction == "bot":
+    img = img[h//3 * 2:, :w]      #Should be bottom third of screen
+    #cv2_imshow(img)
+    #print("BOTTOM ^ \n")
 
-def move():
-    '''
-    Might overload this method. Not sure.
-    This method moves the drone in any direction needed
-    '''
-    pass
+  img = img[:h//3, :w]
+  sec1 = img[::, :w//4]           #First 4th
+  sec2 = img[::, w//4 :w//4 *2]   #Second 4th
+  sec3 = img[::, w//2 :w//4 *3]   #Third 4th
+  sec4 = img[::, w//4 *3 :w]      #Forth 4th
+  
+  return [sec1, sec2, sec3, sec4] 
+
+def determineMovement(img):
+  
+  top = []
+  mid = []
+  bot = []
+
+  sec_top = getSections(img, "top")
+  sec_mid = getSections(img)
+  sec_bot = getSections(img, "bot")
+
+
+  for section in sec_top:
+    top.append(mustMove(section))
+
+  for section in sec_mid:
+    mid.append(mustMove(section))
+    
+  for section in sec_bot:
+    bot.append(mustMove(section))
+
+  Proceed = (np.sum(img > INTENSITY) / (img.shape[0] * img.shape[1])) < PROCEED  #If the sum of the pixels in the image are under the threshold, return true
+  
+  if not mid[1] and not mid[2] and Proceed:
+    print("Move forward")
+
+  if not top[1] and not top[2]:
+    print("Can increase altitude and look again")
+  #else:
+    #print("Dont increase altitude")
+
+  if not bot[1] and not bot[2]:
+    print("Can decrease altitude and look again")
+  #else:
+    #print("Don't lower altitude")
+
+  if mid[1] and not mid[0]:
+    print("Can rotate ccw slightly and look again")
+        
+  if mid[2] and not mid[3]:
+    print("Can rotate cw slightly and look again")
+
+  #print("Rotate CCW / CW at least 90* and look again")
+  print("")
+
+def getInfo(img):
+  #This just returns the information regarding pixels
+
+  max = np.amax(img)
+  min = np.amin(img)
+  avg = np.average(img)
+  percentOfMax = np.sum(img > INTENSITY) / (img.shape[0] * img.shape[1])
+
+  print("Max:", max)
+  print("Min:", min)
+  print("Avg:", avg)
+  print("Percent of > 200 intensity pixels", "{:.2f}".format(percentOfMax * 100))
+  print(percentOfMax)
+  print("\n")
+
+def getInput(drone):
+    
+    lr, fb, ud, yv = 0, 0, 0, 0
+    speed = 60
+    
+    if kb.isPressed("a"): lr = -speed
+    elif kb.isPressed("d"): lr = speed
+
+    if kb.isPressed("s"): fb = -speed
+    elif kb.isPressed("w"): fb = speed
+
+    if kb.isPressed("f"): ud = -speed
+    elif kb.isPressed("r"): ud = speed
+
+    if kb.isPressed("e"): yv = speed
+    elif kb.isPressed("q"): yv = -speed
+
+    if kb.isPressed("m"): drone.turn_motor_on 
+    elif kb.isPressed("n"): drone.turn_motor_off
+
+    if kb.isPressed("t"): drone.takeoff()
+    elif kb.isPressed("l"): drone.land()
+
+    #if kb.isPressed("1"): drone.set_video_direction(tello.Tello.CAMERA_FORWARD)
+    #elif kb.isPressed("2"): drone.set_video_direction(tello.Tello.CAMERA_DOWNWARD) 
+
+    return[lr, fb, ud, yv]
 
 def main():
-    '''
-    The main loop of the program. The main loop should be:
-    Take a photo, process it though the model. 
-    Take the model result, and perform a collision check. 
-        If a collision will happen by moving forward, call the 
-        findBetterCourse() method, and send adjustments as needed. 
-        
-        If a collsion will not happen, move the drone a distance ahead, and start over. 
+    kb.init()
+    
+    drone = tello.Tello()
+    drone.connect()
+    
+    #Settings for drone, initialize the telementry data
+    drone.set_speed(10)
+    response = drone.get_current_state()                        #Gets telementry data
+    data = pd.DataFrame([response])                             #Creates dataframe of telementry data
+    data.transpose()                                            #Sets up the dataframe correctly
+  
+    #drone.set_video_fps(tello.Tello.FPS_15)                     #lower than 15 and choppy, higher than 15 and it drops frames
+    #drone.set_video_resolution(tello.Tello.RESOLUTION_480P)     #Sets resolution of video
+    #drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
+    #drone.set_video_bitrate(tello.Tello.BITRATE_AUTO)          #Sets bitrate of stream
+    
 
-        Loop should be something like:
-        TakePhoto()
-        CheckIfCollision()
-        AdjustCourse()
-        Move()
-    '''
-    pass
+    drone.streamoff()                               #Resets the stream 
+    drone.streamon()                                #starts the stream
+    print("Battery:", drone.get_battery())
+                            # MAIN LOOP #
+    
+    pft = time.time()
+    fps = 0
+    time.sleep(10)
+    while True:
+        img = drone.get_frame_read().frame
+        
+        #print("Shape of img from drone:", img.shape)
+        nft = time.time()
+        try:
+            fps = 1/(nft - pft)
+            pft = nft
+            fps = int(fps)
+            fps = str(fps)
+        except:
+            fps = 0
+
+        #img = drone.get_frame_read().frame
+        newResponse = drone.get_current_state()
+        if img.shape == (720,960,3):
+            img = classify(img)
+            #determineMovement(img)
+        cv2.putText(img, fps, (7,70), cv2.FONT_HERSHEY_SIMPLEX,  3, (255,255,255), 3, cv2.cv2.LINE_AA)
+        cv2.imshow("LIVE FEED", img)
+        cv2.waitKey(1)
+        #print("Post Classification:", img.shape)
+        
+        velocity = getInput(drone)      #Gets input from drone
+
+             #checks for change if nothing, keep going
+        drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
+               
+
+        #image = monoDepth(drone.get_frame_read().frame)     #Sends the frame to the model. This gets hung up alot   
+        #h, w, c = image.shape
+
+        
+        newResponse = drone.get_current_state()             
+        
+        #filename = "frames\\" + datetime.now().strftime('%H%M%S%f') + ".jpg"
+        #cv2.imwrite(filename, img)
+        data.loc[len(data)] = list(newResponse.values())    #appends to the dataframe           
+        data.to_csv('gatheredData.csv', index=False)    
+        
         
 if __name__ == '__main__':
     main()
