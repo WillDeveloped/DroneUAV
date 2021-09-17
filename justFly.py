@@ -57,16 +57,16 @@ def main():
     drone.connect()
     
     #Settings for drone, initialize the telementry data
-    drone.set_speed(100)
+    #drone.set_speed(100)
     response = drone.get_current_state()                        #Gets telementry data
     data = pd.DataFrame([response])                             #Creates dataframe of telementry data
     data.transpose()                                            #Sets up the dataframe correctly
   
-    drone.set_video_fps(tello.Tello.FPS_30)                     #lower than 15 and choppy, higher than 15 and it drops frames
+    #drone.set_video_fps(tello.Tello.FPS_30)                     #lower than 15 and choppy, higher than 15 and it drops frames
     #drone.set_video_resolution(tello.Tello.RESOLUTION_480P)     #Sets resolution of video
     #drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
-    drone.set_video_bitrate(tello.Tello.BITRATE_AUTO)          #Sets bitrate of stream
-    drone.set_video_direction(tello.Tello.CAMERA_FORWARD)
+    #drone.set_video_bitrate(tello.Tello.BITRATE_AUTO)          #Sets bitrate of stream
+    #drone.set_video_direction(tello.Tello.CAMERA_FORWARD)
 
     drone.streamoff()                               #Resets the stream 
     drone.streamon()                                #starts the stream
@@ -76,43 +76,42 @@ def main():
     
     pft = time.time()
     num_frames = 1
-    cap = cv2.VideoCapture('udp://192.168.10.1:11111', cv2.CAP_FFMPEG)
+    #cap = cv2.VideoCapture('udp://192.168.10.1:11111', cv2.CAP_FFMPEG)
     while True:        
-        success, img =cap.read()
+        img = drone.get_frame_read().frame
+        #newResponse = drone.get_current_state()
+        #nft = time.time()
+        #fps = 1/(nft - pft)
+        #pft = nft
+        #fps = int(fps)
+        #fps = str(fps)
+        #print(fps)
+        #cv2.putText(img, fps, (7,70), cv2.FONT_HERSHEY_SIMPLEX,  3, (255,0,0), 3, cv2.cv2.LINE_AA)
         
-        nft = time.time()
-
-        fps = 1/(nft - pft)
-        pft = nft
-        fps = int(fps)
-        fps = str(fps)
-        
-        print(fps)
-        cv2.putText(img, fps, (7,70), cv2.FONT_HERSHEY_SIMPLEX,  3, (255,0,0), 3, cv2.cv2.LINE_AA)
-        newResponse = drone.get_current_state()
-        draw_area_of_concern(img,newResponse["pitch"])
-
+        #draw_area_of_concern(img,newResponse["pitch"])
         cv2.imshow("LIVE FEED", img)
         cv2.waitKey(1)
         img = draw_area_of_concern(img, 0)
-
-
         velocity = getInput(drone)      #Gets input from drone
-
              #checks for change if nothing, keep going
         drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
-               
-
         #image = monoDepth(drone.get_frame_read().frame)     #Sends the frame to the model. This gets hung up alot   
         #h, w, c = image.shape
+    
+        
+        print("acc-x", drone.get_speed_x() , "acc-y", drone.get_speed_y(), "acc-z", drone.get_speed_z())
+        #print("Velo-y", newResponse["vgy"]) 
+        #print("Velo-z", newResponse["vgz"])
 
+        #print("Acc-x", newResponse["agx"])
+        #print("Acc-y", newResponse["agy"]) 
+        #print("Acc-z", newResponse["agz"]) 
+    
         
-        newResponse = drone.get_current_state()             
-        
-        filename = "frames\\" + datetime.now().strftime('%H%M%S%f') + ".jpg"
-        cv2.imwrite(filename, img)
-        data.loc[len(data)] = list(newResponse.values())    #appends to the dataframe           
-        data.to_csv('gatheredData.csv', index=False)    
+        #filename = "frames\\" + datetime.now().strftime('%H%M%S%f') + ".jpg"
+        #cv2.imwrite(filename, img)
+        #data.loc[len(data)] = list(newResponse.values())    #appends to the dataframe           
+        #data.to_csv('gatheredData.csv', index=False)    
         
         
 if __name__ == '__main__':
