@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import time
 import pandas as pd
+import math
 
 import keyboard as kb
 from djitellopy import tello
@@ -21,99 +22,74 @@ PROCEED = 0.60
 INTENSITY = 180
 
 
-def mustMove(img):
-  if (np.sum(img > INTENSITY) / (img.shape[0] * img.shape[1])) > MUSTMOVE:   
-    return True
-  else:
-    return False
+def avgFrame(img):
 
-def getSections(img, direction = "none"):
-  #Seperates the fov into 4 sections
-  # [yMin:yMax, xMin, xMax]
-  h, w = img.shape
+    img = cv2.resize(img, (0,0), fx=0.5, fy=0.5)
+    pixel_values = img.reshape((-1, 3))
+    pixel_values = np.float32(pixel_values)
+    stopCritera = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+    k = 3
+    _, labels, (centers) = cv2.kmeans(pixel_values, k, None, stopCritera, 10, cv2.KMEANS_RANDOM_CENTERS)
+    centers = np.uint8(centers)
+ 
+    labels = labels.flatten()
+    segmented_image = centers[labels.flatten()]
+    segmented_image = segmented_image.reshape(img.shape)
+
+    segmented_image = cv2.resize(img, (0,0), fx=2, fy=2)
+    return segmented_image, centers
+
+
+def calculateDistance(x1, x2, y1, y2):
+  dist = math.sqrt( (x2-x1)**2 + (y2-y1)**2)
+  return int(dist)
+
+
+def getMovementVector(img):
   
-  if direction == "none":
-    img = img[h//3:h//3*2, :w]    #Should be middle third of screen
-    #cv2_imshow(img)
-    #print("MIDDLE ^ \n")
-  if direction == "top":
-    img = img[:h//3, :w]          #Should be top third of screen
-    #cv2_imshow(img)
-    #print("TOP ^ \n")
-  if direction == "bot":
-    img = img[h//3 * 2:, :w]      #Should be bottom third of screen
-    #cv2_imshow(img)
-    #print("BOTTOM ^ \n")
+  img, centers = avgFrame(img)
+  darkest_px = np.where(img <= np.amin(centers))
+  ty = int(sum(darkest_px[0])/len(darkest_px[0]))
+  tx = int(sum(darkest_px[1])/len(darkest_px[1]))
 
-  img = img[:h//3, :w]
-  sec1 = img[::, :w//4]           #First 4th
-  sec2 = img[::, w//4 :w//4 *2]   #Second 4th
-  sec3 = img[::, w//2 :w//4 *3]   #Third 4th
-  sec4 = img[::, w//4 *3 :w]      #Forth 4th
+  originx = int(img.shape[1]/2)
+  originy = int(img.shape[0]/2)
+
+  x_comp = int((tx - originx)/720 * 100)
+  y_comp = int((originy - ty)/360 * 100)
+  mag = int(calculateDistance(originx, tx, originy, ty)/788 * 100)
+
+  #cv2.circle(imgk, (tx,ty), 10,(0), -1) #This draws the circle on the image to see where on the image the vector is going to take the drone
+  '''
+  These lines draw the visuals on the image. Comment them out unless trouble shooting.
   
-  return [sec1, sec2, sec3, sec4] 
+  cv2.circle(imgk, (tx,ty), 10,(0), -1) #This draws the circle on the image to see where on the image the vector is going to take the drone
 
-def determineMovement(img):
+  startpoint = (int(imgk.shape[1]/2), 0)
+  endpoint =  (int(imgk.shape[1]/2), imgk.shape[0])
+  cv2.line(imgk, startpoint, endpoint, (0,0,255), 3)
+
+  startpoint = (0,int(imgk.shape[0]/2))
+  endpoint = (imgk.shape[1], int(imgk.shape[0]/2))
+  cv2.line(imgk, startpoint, endpoint, (0,0,255), 3)
   
-  top = []
-  mid = []
-  bot = []
+  cv2.circle(imgk, (originx,originy), 2,(0), -1)
+  cv2.line(imgk, (originx, originy), (tx, ty), (255,0,0), 3)
+  cv2.line(imgk, (tx, ty), (tx, originy),  (255,0,255), 3)    #Y Comp
+  cv2.putText(imgk, "Y COMP:" + str(originy - ty), (1000, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
+  cv2.line(imgk, (originx, originy), (tx, originy),  (255,0,255), 3) # X Comp
+  cv2.putText(imgk, "X COMP:" + str(tx - originx), (1000, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
+  cv2.putText(imgk, "Mag:" + str(calculateDistance(originx, tx, originy, ty)), (1000, 250), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
 
-  sec_top = getSections(img, "top")
-  sec_mid = getSections(img)
-  sec_bot = getSections(img, "bot")
+  '''
 
+  return x_comp, y_comp, mag, img
 
-  for section in sec_top:
-    top.append(mustMove(section))
-
-  for section in sec_mid:
-    mid.append(mustMove(section))
-    
-  for section in sec_bot:
-    bot.append(mustMove(section))
-
-  Proceed = (np.sum(img > INTENSITY) / (img.shape[0] * img.shape[1])) < PROCEED  #If the sum of the pixels in the image are under the threshold, return true
-  
-  if not mid[1] and not mid[2] and Proceed:
-    print("Move forward")
-
-  if not top[1] and not top[2]:
-    print("Can increase altitude and look again")
-  #else:
-    #print("Dont increase altitude")
-
-  if not bot[1] and not bot[2]:
-    print("Can decrease altitude and look again")
-  #else:
-    #print("Don't lower altitude")
-
-  if mid[1] and not mid[0]:
-    print("Can rotate ccw slightly and look again")
-        
-  if mid[2] and not mid[3]:
-    print("Can rotate cw slightly and look again")
-
-  #print("Rotate CCW / CW at least 90* and look again")
-  print("")
-
-def getInfo(img):
-  #This just returns the information regarding pixels
-
-  max = np.amax(img)
-  min = np.amin(img)
-  avg = np.average(img)
-  percentOfMax = np.sum(img > INTENSITY) / (img.shape[0] * img.shape[1])
-
-  print("Max:", max)
-  print("Min:", min)
-  print("Avg:", avg)
-  print("Percent of > 200 intensity pixels", "{:.2f}".format(percentOfMax * 100))
-  print(percentOfMax)
-  print("\n")
 
 def getInput(drone):
-    
+    #Only here for reference
+
+
     lr, fb, ud, yv = 0, 0, 0, 0
     speed = 60
     
