@@ -4,6 +4,7 @@ import numpy as np
 import time
 import pandas as pd
 import math
+import datetime
 
 import keyboard as kb
 from djitellopy import tello
@@ -11,6 +12,7 @@ from monoDepth import classify
 
 #This may not be needed anymore. Might be switching to 
 #Move commands that wait for a response
+
 velocity = [0, 0 ,0 ,0]
 #programed as lr, fb, y, t 
 #lr is left right
@@ -49,6 +51,10 @@ def getMovementVector(img):
   
   img, centers = avgFrame(img)
   darkest_px = np.where(img <= np.amin(centers))
+  
+  if len(darkest_px[0]) < 1 and len(darkest_px[1]) < 1:
+    return 0,0,0,img
+   
   ty = int(sum(darkest_px[0])/len(darkest_px[0]))
   tx = int(sum(darkest_px[1])/len(darkest_px[1]))
 
@@ -59,37 +65,38 @@ def getMovementVector(img):
   y_comp = int((originy - ty)/360 * 100)
   mag = int(calculateDistance(originx, tx, originy, ty)/788 * 100)
 
-  #cv2.circle(imgk, (tx,ty), 10,(0), -1) #This draws the circle on the image to see where on the image the vector is going to take the drone
-  '''
-  These lines draw the visuals on the image. Comment them out unless trouble shooting.
+  #cv2.circle(img, (tx,ty), 10,(0), -1) #This draws the circle on the image to see where on the image the vector is going to take the drone
   
-  cv2.circle(imgk, (tx,ty), 10,(0), -1) #This draws the circle on the image to see where on the image the vector is going to take the drone
-
-  startpoint = (int(imgk.shape[1]/2), 0)
-  endpoint =  (int(imgk.shape[1]/2), imgk.shape[0])
-  cv2.line(imgk, startpoint, endpoint, (0,0,255), 3)
-
-  startpoint = (0,int(imgk.shape[0]/2))
-  endpoint = (imgk.shape[1], int(imgk.shape[0]/2))
-  cv2.line(imgk, startpoint, endpoint, (0,0,255), 3)
+  #These lines draw the visuals on the image. Comment them out unless trouble shooting.
   
-  cv2.circle(imgk, (originx,originy), 2,(0), -1)
-  cv2.line(imgk, (originx, originy), (tx, ty), (255,0,0), 3)
-  cv2.line(imgk, (tx, ty), (tx, originy),  (255,0,255), 3)    #Y Comp
-  cv2.putText(imgk, "Y COMP:" + str(originy - ty), (1000, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
-  cv2.line(imgk, (originx, originy), (tx, originy),  (255,0,255), 3) # X Comp
-  cv2.putText(imgk, "X COMP:" + str(tx - originx), (1000, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
-  cv2.putText(imgk, "Mag:" + str(calculateDistance(originx, tx, originy, ty)), (1000, 250), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
+  shp1 = img.shape[1]
+  shp0 = img.shape[0]
+  
+  img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+  cv2.circle(img, (tx,ty), 10,(0), -1) #This draws the circle on the image to see where on the image the vector is going to take the drone
+  
+  startpoint = (int(shp1/2), 0)
+  endpoint =  (int(shp1/2), shp0)
+  cv2.line(img, startpoint, endpoint, (0,0,255), 3)
+  startpoint = (0,int(shp0/2))
+  endpoint = (shp1, int(shp0/2))
+  cv2.line(img, startpoint, endpoint, (0,0,255), 3)
+  
+  cv2.circle(img, (originx,originy), 2,(0), -1)
+  cv2.line(img, (originx, originy), (tx, ty), (255,0,0), 3)
+  cv2.line(img, (tx, ty), (tx, originy),  (255,0,255), 3)    #Y Comp
+  cv2.putText(img, "Y COMP:" + str(originy - ty), (1000, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
+  cv2.line(img, (originx, originy), (tx, originy),  (255,0,255), 3) # X Comp
+  cv2.putText(img, "X COMP:" + str(tx - originx), (1000, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
+  cv2.putText(img, "Mag:" + str(calculateDistance(originx, tx, originy, ty)), (1000, 250), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
 
-  '''
-
+  
+  print(x_comp, y_comp, mag)
   return x_comp, y_comp, mag, img
 
 
 def getInput(drone):
     #Only here for reference
-
-
     lr, fb, ud, yv = 0, 0, 0, 0
     speed = 60
     
@@ -121,66 +128,62 @@ def main():
     
     drone = tello.Tello()
     drone.connect()
+    img = cv2.imread("images/initialize.png")       #Initializes the model
+    img = classify(img)
     
     #Settings for drone, initialize the telementry data
-    drone.set_speed(10)
-    response = drone.get_current_state()                        #Gets telementry data
-    data = pd.DataFrame([response])                             #Creates dataframe of telementry data
-    data.transpose()                                            #Sets up the dataframe correctly
+    #drone.set_speed(10)
+    #response = drone.get_current_state()                        #Gets telementry data
+    #data = pd.DataFrame([response])                             #Creates dataframe of telementry data
+    #data.transpose()                                            #Sets up the dataframe correctly
   
     #drone.set_video_fps(tello.Tello.FPS_15)                     #lower than 15 and choppy, higher than 15 and it drops frames
     #drone.set_video_resolution(tello.Tello.RESOLUTION_480P)     #Sets resolution of video
     #drone.set_video_resolution(tello.Tello.RESOLUTION_720P)
     #drone.set_video_bitrate(tello.Tello.BITRATE_AUTO)          #Sets bitrate of stream
     
-
+ 
     drone.streamoff()                               #Resets the stream 
     drone.streamon()                                #starts the stream
     print("Battery:", drone.get_battery())
+                            
+                            
+                            
                             # MAIN LOOP #
     
-    pft = time.time()
-    fps = 0
-    time.sleep(10)
+    #pft = time.time()
+    #fps = 0
+    #time.sleep(10)
     while True:
         img = drone.get_frame_read().frame
         
-        #print("Shape of img from drone:", img.shape)
-        nft = time.time()
-        try:
-            fps = 1/(nft - pft)
-            pft = nft
-            fps = int(fps)
-            fps = str(fps)
-        except:
-            fps = 0
+       
+        #nft = time.time()
+        #try:
+        #    fps = 1/(nft - pft)
+        #    pft = nft
+        #    fps = int(fps)
+        #    fps = str(fps)
+        #except:
+        #    fps = 0
 
-        #img = drone.get_frame_read().frame
-        newResponse = drone.get_current_state()
+        #newResponse = drone.get_current_state()
         if img.shape == (720,960,3):
             img = classify(img)
-            #determineMovement(img)
-        cv2.putText(img, fps, (7,70), cv2.FONT_HERSHEY_SIMPLEX,  3, (255,255,255), 3, cv2.cv2.LINE_AA)
+            x_comp, y_comp, mag, img = getMovementVector(img)
+            #img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        #cv2.putText(img, fps, (7,70), cv2.FONT_HERSHEY_SIMPLEX,  3, (255,255,255), 3, cv2.cv2.LINE_AA)
         cv2.imshow("LIVE FEED", img)
         cv2.waitKey(1)
         #print("Post Classification:", img.shape)
         
         velocity = getInput(drone)      #Gets input from drone
-
-             #checks for change if nothing, keep going
-        drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])
-               
-
-        #image = monoDepth(drone.get_frame_read().frame)     #Sends the frame to the model. This gets hung up alot   
-        #h, w, c = image.shape
-
-        
-        newResponse = drone.get_current_state()             
+        drone.send_rc_control(velocity[0], velocity[1], velocity[2], velocity[3])             
         
         #filename = "frames\\" + datetime.now().strftime('%H%M%S%f') + ".jpg"
         #cv2.imwrite(filename, img)
-        data.loc[len(data)] = list(newResponse.values())    #appends to the dataframe           
-        data.to_csv('gatheredData.csv', index=False)    
+        #data.loc[len(data)] = list(newResponse.values())    #appends to the dataframe           
+        #data.to_csv('gatheredData.csv', index=False)    
         
         
 if __name__ == '__main__':
